@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Ignored files for project
+.idea
+local/*
+.DS_Store
