@@ -176,4 +176,5 @@ cython_debug/
 # Ignored files for project
 .idea
 local/*
+output/*
 .DS_Store
