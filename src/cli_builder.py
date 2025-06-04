@@ -3,52 +3,47 @@ import sys
 import requests
 import click
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 from rich.prompt import Confirm
 
 from .court_listener import search_courtlistener
-
+from .export_csv import export_csv
+from .export_pdf import export_pdf
 
 console = Console()
 
 @click.command(
     help=(
-        "lexcli is a CLI tool to search legal databases and output to a CSV file."
+        "lexcli is a CLI tool to search legal databases and output the results."
     )
 )
-@click.option(
-    "--query",
-    "-q",
-    required=True,
-    help="Enter a search term to query legal databases."
-)
-@click.option(
-    "--page",
-    "-p",
-    default=1,
-    help="Page of the results fo fetch (10 results per page)."
-)
-@click.option(
-    "--page-size",
-    "-ps",
-    default=10,
-    help="How many results to fetch (max 100)."
-)
-@click.option(
-    "--output-pdf",
-    "-d",
-    default="../output.pdf",
-    show_default=True,
-    help="PDF output file name."
-)
-@click.option(
-    "--output-csv",
-    "-c",
-    default="../output.csv",
-    show_default=True,
-    help="CSV output file name."
-)
-def generate_cli(query: str, page: int, page_size: int, output_pdf: str, output_csv: str):
+def generate_cli():
+    console.print("\n[bold blue]Welcome to lexcli! (Interactive Mode)[/]")
+    
+    query = click.prompt("Enter search term", type=str)
+    page = click.prompt("Enter results page to fetch", type=int, default=1, show_default=True)
+    page_size = click.prompt("Enter total results to fetch", type=int, default=10, show_default=True)
+    
+    export_csv_ask = Confirm.ask("Do you want to export the results as CSV?", default=False)
+    export_pdf_ask = Confirm.ask("Do you want to export the results as PDF?", default=False)
+    
+    console.print()
+    console.print(
+        Panel(
+            "[bold][green] Press Enter to Search [/green][/bold]",
+            title="Ready",
+            subtitle="(click Enter)",
+            expand=False,
+            border_style="blue",
+        )
+    )
+    perform_search = Confirm.ask("", default=True)
+    
+    if not perform_search:
+        console.print("[bold red]Exiting...[/]")
+        sys.exit(0)
+        
     console.print(f"\n[bold cyan]lexcli[/] -> Searching legal databases for [green]{query}[/]...\n")
     
     #Send request to CourtListener API
@@ -67,18 +62,28 @@ def generate_cli(query: str, page: int, page_size: int, output_pdf: str, output_
     table.add_column("Case Name", style="white")
     table.add_column("Court", style="cyan", no_wrap=True)
     table.add_column("Date Filed",style="green")
-    table.add_column("Download Link", style="yellow", no_wrap=True)
+    table.add_column("Download Link (not guaranteed to work)", style="yellow", no_wrap=True)
 
     for idx, item in enumerate(results, start=1):
         name = item.get("caseName", "-")
         court = item.get("court", "-")
         date_filed = item.get("dateFiled", "-")
-        dl_link = item.get("downloadLink", "-")
+        dl_link = item.get("opinions")[0].get("download_url", "None")
         table.add_row(str(idx), name, court, date_filed, dl_link)
 
     console.print(table)
 
-    #TODO:Export JSON
-    #TODO:Export CSV
+    if export_csv_ask:
+        try:
+            export_csv(results)
+            console.print(f"\n[bold green]CSV exported successfully![/]")
+        except Exception as e:
+            console.print(f"\n[bold red]Error: {e}[/]")
+    if export_pdf_ask:
+        try:
+            export_pdf(query, results)
+            console.print(f"[green]PDF saved![/]\n")
+        except Exception as e:
+            console.print(f"\n[bold red]Error: {e}[/]")
     
     console.print(f"[green]Done![/]")
